@@ -17,12 +17,14 @@ print(end-start)
 # Gives Fresnel radius
 # Testing parameters are for J0030+0451, at distance = 329 kpc observed at f = 815.73 MHz (wavelength = 36.6 cm)
 ds = (329/2)*u.pc # distance to screen (distance to pulsar / 2, unless specified otherwise)
-k = 2*np.pi/(36.6*u.cm) # factor to convert into angle units (microarcsec)
+k = 2*np.pi/(36.6*u.cm)
 r_f = (np.sqrt((ds)/(k))).to(u.cm)
-pixel_scale = (sim.dx*r_f*u.rad/(ds)).to(u.mas) # Gives the pixel scale. dx overrides default ds value in the simulation
+# Gives the pixel scale. dx overrides default ds value in the simulation
+pixel_scale = (sim.dx*r_f*u.rad/(ds)).to(u.mas)
 print("One pixel = ", pixel_scale)
 
 # Gets phase gradient (in angle/length)
+# k = factor to convert into angle units (microarcsec)
 phsgrad = (np.gradient(sim.xyp,r_f.value*sim.dx,r_f.value*sim.dy))*u.deg/(k.value)
 phsgrad = phsgrad.to(u.uas)
 
@@ -42,11 +44,11 @@ im_shift_y = convolve2d(phsgrad[1],scat_disk,mode='same')/np.sum(scat_disk)
 
 ## Find true sky position with fitted curve ##
 #Define your observing times
-dt = np.linspace(0,3,100)*u.yr
+dt = np.linspace(0,1/100,100)*u.yr
 t = Time('2026-10-03 05:11:23.5') + dt
 
 #Define the coordinates of your pulsar
-c = SkyCoord(ra='00:30:27.4', dec='+04:51:39.7 ', unit=(u.hourangle,u.deg),
+c = SkyCoord(ra='00:30:27.4', dec='+04:51:39.7', unit=(u.hourangle,u.deg),
              frame='icrs',obstime=t[0])
 
 pxd=(3.040*u.mas).to(u.pc,u.parallax()) #parallax distance
@@ -91,22 +93,27 @@ print("True: Best fit parallax angle  ra proper motion, dec proper motion", popt
 print("True: in parallax angle  ra proper motion, dec proper motion", np.sqrt(np.diag(pcov)))
 
 ## Fit observed pulsar position ##
-# Conversions to fit the true positions to simulation units
-psr_x_pix = np.round(dra/pixel_scale).astype(int)
-psr_y_pix = np.round(ddec/pixel_scale).astype(int)
+# Conversions to fit the true positions to simulation units and apply offsets to remove negative values
+psr_x_pix = np.round(dra.to(u.mas)/pixel_scale).astype(int)
+psr_x_pix -= min(psr_x_pix)
+psr_x_pix = np.clip (psr_x_pix, 0, 125) #applies bounds to remain in the simulation size
 
-# Apply the shifts to corresponding pulsar positions
+psr_y_pix = np.round(ddec.to(u.mas)/pixel_scale).astype(int)
+psr_y_pix -= min(psr_y_pix)
+psr_y_pix = np.clip (psr_y_pix, 0, 625) #applies bounds to remain in the simulation size
+
+# Apply the shifts at the pulsar positions
 psr_shifts_x = im_shift_x[psr_x_pix, psr_y_pix]
 psr_shifts_y = im_shift_y[psr_x_pix, psr_y_pix]
 
 # Get the observed positions by taking true positions and adding the corresponding shifts
-obs_pos_x = (dra).to(u.mas) + (psr_shifts_x)*u.mas
-obs_pos_y = (ddec).to(u.mas) + (psr_shifts_y)*u.mas
+obs_pos_x = (dra).to(u.mas) + (psr_shifts_x)*u.uas
+obs_pos_y = (ddec).to(u.mas) + (psr_shifts_y)*u.uas
 
 obs_popt, obs_pcov = curve_fit(fit_pulsar_astrometry,np.concatenate((dt.value,dt.value)),np.concatenate(((obs_pos_x).to(u.mas).value,(obs_pos_y).to(u.mas).value)))
 
-print("Observed: Best fit parallax angle, ra proper motion, dec proper motion", obs_popt)
-print("Observed: Error in parallax angle, ra proper motion, dec proper motion", np.sqrt(np.diag(obs_pcov)))
+print("Observed: Best fit parallax angle, ra proper motion, dec proper motion", obs_popt, "mas")
+print("Observed: Error in parallax angle, ra proper motion, dec proper motion", np.sqrt(np.diag(obs_pcov)), "mas")
 
 # Plots true position along with observed position of the pulsar
 plt.scatter((dra).to(u.mas),(ddec).to(u.mas),s=1,label='True Position')
