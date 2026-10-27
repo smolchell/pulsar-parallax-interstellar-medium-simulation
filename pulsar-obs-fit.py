@@ -14,33 +14,41 @@ sim = Simulation(ds=0.1,ny=626,nx=126)
 end = time.time()
 print(end-start)
 
-# Gives Fresnel radius
+
 # Testing parameters are for J0030+0451, at distance = 329 kpc observed at f = 815.73 MHz (wavelength = 36.6 cm)
-ds = (329/2)*u.pc # distance to screen (distance to pulsar / 2, unless specified otherwise)
-k = 2*np.pi/(36.6*u.cm)
-r_f = (np.sqrt((ds)/(k))).to(u.cm)
-# Gives the pixel scale. dx overrides default ds value in the simulation
-pixel_scale = (sim.dx*r_f*u.rad/(ds)).to(u.mas)
-print("One pixel = ", pixel_scale)
+dist = 329 #Mhz
+wavlgth = 36.6 #cm
 
-# Gets phase gradient (in angle/length)
-# k = factor to convert into angle units (microarcsec)
-phsgrad = (np.gradient(sim.xyp,r_f.value*sim.dx,r_f.value*sim.dy))*u.deg/(k.value)
-phsgrad = phsgrad.to(u.uas)
+def phase_calculations(sim, dist, wavlgth):
+    # Gives Fresnel radius
+    ds = (dist/2)*u.pc # distance to screen (distance to pulsar / 2, unless specified otherwise)
+    k = 2*np.pi/(wavlgth*u.cm)
+    r_f = (np.sqrt((ds)/(k))).to(u.cm)
 
-#The actual shift should be averaged over the scattering disk size (~1 Fresnel radius)
-radius = int(1/sim.dx) # 1 fresnel scale in pixels
+    # Gives the pixel scale. dx overrides default ds value in the simulation
+    pixel_scale = (sim.dx*r_f*u.rad/(ds)).to(u.mas)
+    print("One pixel = ", pixel_scale)
 
-#Makes circular gaussian for taking average
-scat_disk = np.zeros((6*radius,6*radius))
-x = np.linspace(-3*radius,3*radius,6*radius)
-y = np.linspace(-3*radius,3*radius,6*radius)
-X,Y = np.meshgrid(x,y)
+    # Gets phase gradient (in angle/length)
+    # k = factor to convert into angle units (microarcsec)
+    phsgrad = (np.gradient(sim.xyp,r_f.value*sim.dx,r_f.value*sim.dy))*u.deg/(k.value)
+    phsgrad = phsgrad.to(u.uas)
 
-scat_disk = np.exp(-((X)**2/(2*radius*radius) + (Y)**2/(2*radius*radius)))
+    #The actual shift should be averaged over the scattering disk size (~1 Fresnel radius)
+    radius = int(1/sim.dx) # 1 fresnel scale in pixels
 
-im_shift_x = convolve2d(phsgrad[0],scat_disk,mode='same')/np.sum(scat_disk)
-im_shift_y = convolve2d(phsgrad[1],scat_disk,mode='same')/np.sum(scat_disk)
+    #Makes circular gaussian for taking average
+    scat_disk = np.zeros((6*radius,6*radius))
+    x = np.linspace(-3*radius,3*radius,6*radius)
+    y = np.linspace(-3*radius,3*radius,6*radius)
+    X,Y = np.meshgrid(x,y)
+
+    scat_disk = np.exp(-((X)**2/(2*radius*radius) + (Y)**2/(2*radius*radius)))
+    return scat_disk, phsgrad, pixel_scale
+
+scat_disk, phsgrad, pixel_scale = phase_calculations(sim, dist, wavlgth)
+
+## original position of convol
 
 ## Find true sky position with fitted curve ##
 #Define your observing times
@@ -73,9 +81,9 @@ def fit_pulsar_astrometry(dt,pxd,pmra,pmdec):
     d=(pxd*u.mas).to(u.pc,u.parallax())
     pm_ra_cosdec = pmra*u.mas/u.yr
     pm_dec = pmdec*u.mas/u.yr
-    
+
     earthpos = get_body_barycentric('earth',t)
-    
+
     dra = (earthpos.x*np.sin(c.ra) - earthpos.y*np.cos(c.ra))/(d*np.cos(c.dec))*u.rad #parallax signal
     dra += pm_ra_cosdec*dt[:dt.shape[0]//2]*u.yr/np.cos(c.icrs.dec) #add the proper motion
     dra = dra.to(u.mas).value
@@ -101,6 +109,10 @@ psr_x_pix = np.clip (psr_x_pix, 0, 125) #applies bounds to remain in the simulat
 psr_y_pix = np.round(ddec.to(u.mas)/pixel_scale).astype(int)
 psr_y_pix -= min(psr_y_pix)
 psr_y_pix = np.clip (psr_y_pix, 0, 625) #applies bounds to remain in the simulation size
+
+### split code here as convolution takes most time
+im_shift_x = convolve2d(phsgrad[0],scat_disk,mode='same')/np.sum(scat_disk)
+im_shift_y = convolve2d(phsgrad[1],scat_disk,mode='same')/np.sum(scat_disk)
 
 # Apply the shifts at the pulsar positions
 psr_shifts_x = im_shift_x[psr_x_pix, psr_y_pix]
