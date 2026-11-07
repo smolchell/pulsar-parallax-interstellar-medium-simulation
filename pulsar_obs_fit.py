@@ -123,7 +123,7 @@ def pulsar_coord(ra,dec, pmra, pmdec, obvsPeriod, dist):
     c = SkyCoord(ra, dec, unit=(u.hourangle,u.deg),
                 frame='icrs',obstime=obvsPeriod[0])
 
-    pxd=(dist*u.mas).to(u.pc,u.parallax()) #parallax distance #(1/dist*rads)*u.mas
+    pxd=(dist*u.pc).to(u.pc,u.parallax()) #parallax distance #(1/dist*rads)*u.mas
     # pxd= dist*u.mas
     print(pxd)
     pm_ra_cosdec=pmra*u.mas/u.yr #proper motion in right ascension
