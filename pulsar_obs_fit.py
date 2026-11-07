@@ -119,11 +119,13 @@ def observation_Bounds(start, stop):
 
 #---------------Read in file of pulsar properties for these-----------------
 #Define the coordinates of your pulsar
-def pulsar_coord(ra,dec, pmra, pmdec, obvsPeriod):
+def pulsar_coord(ra,dec, pmra, pmdec, obvsPeriod, dist):
     c = SkyCoord(ra, dec, unit=(u.hourangle,u.deg),
                 frame='icrs',obstime=obvsPeriod[0])
 
-    pxd=(3.040*u.mas).to(u.pc,u.parallax()) #parallax distance
+    pxd=(dist*u.mas).to(u.pc,u.parallax()) #parallax distance #(1/dist*rads)*u.mas
+    # pxd= dist*u.mas
+    print(pxd)
     pm_ra_cosdec=pmra*u.mas/u.yr #proper motion in right ascension
     pm_dec=pmdec*u.mas/u.yr #proper motion in declination
     return pxd, pm_ra_cosdec, pm_dec,c
