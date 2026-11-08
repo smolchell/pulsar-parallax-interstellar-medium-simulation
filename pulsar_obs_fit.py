@@ -7,6 +7,7 @@ from astropy.coordinates import SkyCoord, EarthLocation, get_body_barycentric
 import astropy.units as u
 from scipy.signal import convolve2d
 from scipy.optimize import curve_fit
+import math
 
 ## Simulated scintillation shift ##
 
@@ -109,8 +110,13 @@ def fit_pulsar_astrometry(dt,pxd,pmra,pmdec,c):
 ## Find true sky position with fitted curve ##
 #Define your observing times
 ###---SHIFT OBSERVATION BOUNDS HERE---###
-def observation_Bounds(start, stop):
-    dt = np.linspace(start,stop,365*stop)*u.yr
+def observation_Bounds(start, stop,**kwargs):
+    if 'interval' in kwargs: 
+        interval = kwargs.get('interval') 
+    else:
+        interval = 365
+    steps = math.ceil(interval*stop)
+    dt = np.linspace(start,stop,steps)*u.yr
     obvsPeriod = Time('2026-10-03 05:11:23.5') + dt
     return obvsPeriod, dt
 
@@ -125,7 +131,6 @@ def pulsar_coord(ra,dec, pmra, pmdec, obvsPeriod, dist):
 
     pxd=(dist*u.pc).to(u.pc,u.parallax()) #parallax distance #(1/dist*rads)*u.mas
     # pxd= dist*u.mas
-    print(pxd)
     pm_ra_cosdec=pmra*u.mas/u.yr #proper motion in right ascension
     pm_dec=pmdec*u.mas/u.yr #proper motion in declination
     return pxd, pm_ra_cosdec, pm_dec,c
