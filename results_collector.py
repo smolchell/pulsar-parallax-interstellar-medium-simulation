@@ -38,13 +38,14 @@ def fit_pulsar_astrometry(dt,pxd,pmra,pmdec):
 
     return np.concatenate((dra,ddec))
 
-times = [1,2,3,5,7,10]
-with open('scintil_applied_results_p2.csv', 'w', encoding='UTF8', newline='') as resultFile:
+times = [1,1.5,2,2.5,3] ## reduce upper limit to 3 years
+with open('scintil_applied_results_period_variation.csv', 'w', encoding='UTF8', newline='') as resultFile:
     writer = csv.writer(resultFile)
     # write the header
     writer.writerow(headers)
 
-    for sim_num in range(3,10):
+    for sim_num in range(10):
+        print(f"---- simulation {sim_num} started ----")
         x_file_name = "C://Users//mitch//OneDrive - Swinburne University//Ashley Stock's files - simulations//im_shift_x_sim_"+str(sim_num)+".npy"
         y_file_name = "C://Users//mitch//OneDrive - Swinburne University//Ashley Stock's files - simulations//im_shift_y_sim_"+str(sim_num)+".npy"
         x_data = np.load(x_file_name)
@@ -65,7 +66,7 @@ with open('scintil_applied_results_p2.csv', 'w', encoding='UTF8', newline='') as
 
                 #Will need to read in dist and wavlgth from your text file for this
                 pixel_scale, k , r_f = give_pixel_scale(dist, wavlgth, dx=0.1)
-                pxd, pm_ra_cosdec, pm_dec,c = pulsar_coord(ra, dec, pmra, pmdec, obvsPeriod)
+                pxd, pm_ra_cosdec, pm_dec,c = pulsar_coord(ra, dec, pmra, pmdec, obvsPeriod,dist)
                 dra, ddec = get_pulsar_position(obvsPeriod, pxd, pm_ra_cosdec, pm_dec,c,dt)
                 psr_x_pix, psr_y_pix = fit_sim(dra,ddec,pixel_scale) #output restricts the what we're looking at in the simulation
 
